@@ -1,0 +1,10 @@
+# JUCEのソース本体(サブモジュール化しないなら除外)
+JUCE/
+
+# ビルド成果物
+Builds/
+build/
+cmake-build-*/
+
+# macOS
+.DS_Store
