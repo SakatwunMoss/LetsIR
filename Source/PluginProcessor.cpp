@@ -240,6 +240,8 @@ void LetsIRAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     const auto numSamples = buffer.getNumSamples();
 
+    updateInputLevelFromBuffer (buffer, totalNumInputChannels, numSamples);
+
 
 
     if (captureState_.load() != CaptureState::recording)
@@ -275,6 +277,8 @@ void LetsIRAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
 
     auto capturePosition = capturePosition_.load();
+
+    const float inputGain = inputGainLinear_.load (std::memory_order_relaxed);
 
 #if JUCE_DEBUG
     const auto writePositionAtBlockStart = capturePosition;
@@ -324,7 +328,9 @@ void LetsIRAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
                                           : 0.0f;
 
-            recordedBuffer_.setSample (channel, capturePosition, inputSample);
+            const float gainedSample = inputSample * inputGain;
+
+            recordedBuffer_.setSample (channel, capturePosition, gainedSample);
 
         }
 
@@ -388,6 +394,29 @@ void LetsIRAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     }
 
+}
+
+
+
+void LetsIRAudioProcessor::updateInputLevelFromBuffer (const juce::AudioBuffer<float>& buffer,
+                                                       int numInputChannels,
+                                                       int numSamples) noexcept
+{
+    if (numInputChannels <= 0 || numSamples <= 0)
+        return;
+
+    const float gain = inputGainLinear_.load (std::memory_order_relaxed);
+    float peak = 0.0f;
+
+    for (int ch = 0; ch < numInputChannels; ++ch)
+        peak = juce::jmax (peak, buffer.getMagnitude (ch, 0, numSamples));
+
+    peak *= gain;
+
+    if (peak > 0.0f)
+        inputLevelDb_.store (juce::Decibels::gainToDecibels (peak), std::memory_order_relaxed);
+    else
+        inputLevelDb_.store (-100.0f, std::memory_order_relaxed);
 }
 
 
@@ -508,6 +537,8 @@ void LetsIRAudioProcessor::startSweepPlayback()
 
         capturePosition_.store (0);
 
+        inputLevelDb_.store (-100.0f, std::memory_order_relaxed);
+
 #if JUCE_DEBUG
         const float firstSampleCh0 = recordedBuffer_.getNumSamples() > 0
                                          ? recordedBuffer_.getSample (0, 0)
@@ -587,6 +618,36 @@ double LetsIRAudioProcessor::getCurrentSampleRate() const noexcept
 {
 
     return currentSampleRate_;
+
+}
+
+
+
+void LetsIRAudioProcessor::setInputGainDb (float gainDb) noexcept
+
+{
+
+    inputGainLinear_.store (juce::Decibels::decibelsToGain (gainDb), std::memory_order_relaxed);
+
+}
+
+
+
+float LetsIRAudioProcessor::getInputGainDb() const noexcept
+
+{
+
+    return juce::Decibels::gainToDecibels (inputGainLinear_.load (std::memory_order_relaxed));
+
+}
+
+
+
+float LetsIRAudioProcessor::getInputLevelDb() const noexcept
+
+{
+
+    return inputLevelDb_.load (std::memory_order_relaxed);
 
 }
 

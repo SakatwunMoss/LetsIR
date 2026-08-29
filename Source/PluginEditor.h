@@ -2,6 +2,8 @@
 
 
 
+#include "IRWaveformComponent.h"
+#include "InputLevelMeterComponent.h"
 #include "PluginProcessor.h"
 
 
@@ -31,6 +33,7 @@ private:
     void timerCallback() override;
 
     void exportIRToWav();
+    void updateIRWaveform();
 
     static juce::String captureStateToString (CaptureState state);
 
@@ -47,6 +50,17 @@ private:
     juce::Label statusLabel;
 
     juce::Label exportStatusLabel;
+    IRWaveformComponent irWaveformComponent;
+
+    juce::Label inputGainLabel;
+    juce::Slider inputGainSlider;
+    InputLevelMeterComponent inputLevelMeter;
+
+#if JucePlugin_Build_Standalone
+    juce::ToggleButton enableInputButton { "Enable Input" };
+#endif
+
+    float meterDisplayDb_ = -60.0f;
 
 
 

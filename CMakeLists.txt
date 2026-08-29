@@ -12,7 +12,9 @@ juce_add_plugin(LetsIR
     PRODUCT_NAME "LetsIR"
     NEEDS_WEB_BROWSER FALSE
     NEEDS_CURL FALSE
-    NSBluetoothAlwaysUsageDescription: "このアプリはBluetoothオーディオデバイスの検出のために使用します")
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "Microphone access is required for recording and input level metering."
+    NSBluetoothAlwaysUsageDescription "This app uses Bluetooth to detect audio devices.")
 
 target_sources(LetsIR
     PRIVATE
@@ -21,7 +23,9 @@ target_sources(LetsIR
         Source/SweepGenerator.cpp
         Source/Deconvolver.cpp
         Source/IRPostProcessor.cpp
-        Source/IRWavExporter.cpp)
+        Source/IRWavExporter.cpp
+        Source/IRWaveformComponent.cpp
+        Source/InputLevelMeterComponent.cpp)
 
 target_compile_definitions(LetsIR
     PUBLIC

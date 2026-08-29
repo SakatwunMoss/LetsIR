@@ -4,6 +4,12 @@
 
 #include "IRWavExporter.h"
 
+#if JucePlugin_Build_Standalone
+ #include <juce_audio_devices/juce_audio_devices.h>
+ #include <juce_audio_utils/juce_audio_utils.h>
+ #include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
+#endif
+
 
 
 LetsIRAudioProcessorEditor::LetsIRAudioProcessorEditor (LetsIRAudioProcessor& p)
@@ -17,6 +23,8 @@ LetsIRAudioProcessorEditor::LetsIRAudioProcessorEditor (LetsIRAudioProcessor& p)
     {
 
         processorRef.startSweepPlayback();
+
+        meterDisplayDb_ = -60.0f;
 
         playSweepButton.setEnabled (false);
 
@@ -40,6 +48,34 @@ LetsIRAudioProcessorEditor::LetsIRAudioProcessorEditor (LetsIRAudioProcessor& p)
 
 
 
+    inputGainLabel.setText ("Input Gain", juce::dontSendNotification);
+    inputGainLabel.setJustificationType (juce::Justification::centredLeft);
+
+    inputGainSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    inputGainSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 64, 20);
+    inputGainSlider.setRange (-12.0, 24.0, 0.1);
+    inputGainSlider.setValue (0.0, juce::dontSendNotification);
+    inputGainSlider.setTextValueSuffix (" dB");
+    inputGainSlider.onValueChange = [this]
+    {
+        processorRef.setInputGainDb (static_cast<float> (inputGainSlider.getValue()));
+    };
+
+#if JucePlugin_Build_Standalone
+    enableInputButton.setClickingTogglesState (true);
+    enableInputButton.setTooltip ("Unmutes Standalone input. Required for metering and recording.");
+    enableInputButton.onClick = [this]
+    {
+        if (auto* holder = juce::StandalonePluginHolder::getInstance())
+            holder->getMuteInputValue() = ! enableInputButton.getToggleState();
+    };
+
+    if (auto* holder = juce::StandalonePluginHolder::getInstance())
+        enableInputButton.setToggleState (! (bool) holder->getMuteInputValue().getValue(), juce::dontSendNotification);
+#endif
+
+
+
     addAndMakeVisible (playSweepButton);
 
     addAndMakeVisible (exportWavButton);
@@ -47,10 +83,21 @@ LetsIRAudioProcessorEditor::LetsIRAudioProcessorEditor (LetsIRAudioProcessor& p)
     addAndMakeVisible (statusLabel);
 
     addAndMakeVisible (exportStatusLabel);
+    addAndMakeVisible (irWaveformComponent);
+    addAndMakeVisible (inputGainLabel);
+    addAndMakeVisible (inputGainSlider);
+    addAndMakeVisible (inputLevelMeter);
+#if JucePlugin_Build_Standalone
+    addAndMakeVisible (enableInputButton);
+#endif
+    irWaveformComponent.setVisible (false);
 
-    startTimerHz (20);
+    if (processorRef.hasProcessedIR())
+        updateIRWaveform();
 
-    setSize (400, 340);
+    startTimer (30);
+
+    setSize (400, 560);
 
 }
 
@@ -82,7 +129,7 @@ void LetsIRAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (juce::Colours::lightgrey);
 
-    g.drawFittedText ("Standalone: enable input in Audio/MIDI Settings",
+    g.drawFittedText ("Standalone: select input device in Audio/MIDI Settings, then turn ON \"Enable Input\"",
 
                       getLocalBounds().removeFromBottom (36).reduced (8, 0),
 
@@ -104,6 +151,24 @@ void LetsIRAudioProcessorEditor::resized()
 
     exportStatusLabel.setBounds (bounds.removeFromTop (24));
 
+    irWaveformComponent.setBounds (bounds.removeFromTop (150));
+
+    bounds.removeFromTop (8);
+
+    auto inputRow = bounds.removeFromTop (120);
+    inputLevelMeter.setBounds (inputRow.removeFromLeft (48));
+    inputRow.removeFromLeft (8);
+
+    auto gainArea = inputRow;
+    inputGainLabel.setBounds (gainArea.removeFromTop (20));
+    inputGainSlider.setBounds (gainArea.removeFromTop (28));
+#if JucePlugin_Build_Standalone
+    gainArea.removeFromTop (4);
+    enableInputButton.setBounds (gainArea.removeFromTop (24));
+#endif
+
+    bounds.removeFromTop (8);
+
     auto buttonRow = bounds.withSizeKeepingCentre (160, 72);
 
     playSweepButton.setBounds (buttonRow.removeFromTop (32));
@@ -121,8 +186,10 @@ void LetsIRAudioProcessorEditor::timerCallback()
 {
 
     if (processorRef.consumeCaptureCompletePending())
-
+    {
         processorRef.processRecordedCapture();
+        updateIRWaveform();
+    }
 
 
 
@@ -133,6 +200,47 @@ void LetsIRAudioProcessorEditor::timerCallback()
     playSweepButton.setEnabled (state != CaptureState::recording);
 
     exportWavButton.setEnabled (processorRef.hasProcessedIR());
+
+#if JucePlugin_Build_Standalone
+    if (auto* holder = juce::StandalonePluginHolder::getInstance())
+        enableInputButton.setToggleState (! (bool) holder->getMuteInputValue().getValue(), juce::dontSendNotification);
+#endif
+
+    constexpr float kMinDb = -60.0f;
+    const auto targetDb = juce::jlimit (kMinDb, 0.0f, processorRef.getInputLevelDb());
+
+    if (targetDb >= meterDisplayDb_)
+        meterDisplayDb_ = targetDb;
+    else
+        meterDisplayDb_ = juce::jmax (targetDb, meterDisplayDb_ - 2.5f);
+
+    inputLevelMeter.setLevelDb (meterDisplayDb_);
+
+}
+
+
+
+void LetsIRAudioProcessorEditor::updateIRWaveform()
+
+{
+
+    if (! processorRef.hasProcessedIR())
+
+        return;
+
+
+
+    const auto irBuffer = processorRef.getProcessedIRCopy();
+
+    const auto sampleRate = processorRef.getCurrentSampleRate() > 0.0
+
+                                ? processorRef.getCurrentSampleRate()
+
+                                : 44100.0;
+
+
+
+    irWaveformComponent.setIRBuffer (irBuffer, sampleRate);
 
 }
 

@@ -138,6 +138,12 @@ public:
 
     double getCurrentSampleRate() const noexcept;
 
+    void setInputGainDb (float gainDb) noexcept;
+
+    float getInputGainDb() const noexcept;
+
+    float getInputLevelDb() const noexcept;
+
 
 
 private:
@@ -158,7 +164,14 @@ private:
     std::atomic<CaptureState> captureState_ { CaptureState::idle };
     std::atomic<bool> captureCompletePending_ { false };
 
+    std::atomic<float> inputGainLinear_ { 1.0f };
+    std::atomic<float> inputLevelDb_ { -100.0f };
+
     double currentSampleRate_ = 44100.0;
+
+    void updateInputLevelFromBuffer (const juce::AudioBuffer<float>& buffer,
+                                     int numInputChannels,
+                                     int numSamples) noexcept;
 
 
 
