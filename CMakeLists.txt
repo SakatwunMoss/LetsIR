@@ -1,42 +1,47 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(LetsIR VERSION 0.0.1)
+project(LetsIR VERSION 0.1.0)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(JUCE)
 
-juce_add_plugin(LetsIR
+juce_add_gui_app(LetsIR
     COMPANY_NAME "LetsIRDev"
-    PLUGIN_MANUFACTURER_CODE LtIr
-    PLUGIN_CODE Lsir
-    FORMATS Standalone VST3
     PRODUCT_NAME "LetsIR"
     NEEDS_WEB_BROWSER FALSE
-    NEEDS_CURL FALSE
-    MICROPHONE_PERMISSION_ENABLED TRUE
-    MICROPHONE_PERMISSION_TEXT "Microphone access is required for recording and input level metering."
-    NSBluetoothAlwaysUsageDescription "This app uses Bluetooth to detect audio devices.")
+    NEEDS_CURL FALSE)
 
 target_sources(LetsIR
     PRIVATE
-        Source/PluginProcessor.cpp
-        Source/PluginEditor.cpp
-        Source/SweepGenerator.cpp
-        Source/Deconvolver.cpp
-        Source/IRPostProcessor.cpp
-        Source/IRWavExporter.cpp
+        Source/Main.cpp
+        Source/MainComponent.cpp
         Source/IRWaveformComponent.cpp
-        Source/InputLevelMeterComponent.cpp)
+        Source/Acoustics/MaterialLibrary.cpp
+        Source/Acoustics/RoomModel.cpp
+        Source/Acoustics/ChannelEncoder.cpp
+        Source/Acoustics/AcousticSimulator.cpp
+        Source/Acoustics/IRExporter.cpp
+        Source/Acoustics/RoomLayoutView.cpp)
+
+target_include_directories(LetsIR
+    PRIVATE
+        Source)
 
 target_compile_definitions(LetsIR
-    PUBLIC
+    PRIVATE
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
-        JUCE_VST3_CAN_REPLACE_VST2=0)
+        JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:LetsIR,JUCE_PRODUCT_NAME>"
+        JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:LetsIR,JUCE_VERSION>")
 
 target_link_libraries(LetsIR
     PRIVATE
         juce::juce_audio_utils
+        juce::juce_audio_formats
         juce::juce_dsp
+        juce::juce_gui_extra
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags

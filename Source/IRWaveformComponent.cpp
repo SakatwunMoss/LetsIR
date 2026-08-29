@@ -161,10 +161,10 @@ void IRWaveformComponent::paint (juce::Graphics& g)
     if (displayPeak_ <= 0.0f)
     {
         g.setColour (juce::Colours::grey);
-        g.drawFittedText ("Silent IR\nTurn ON \"Enable Input\" and record again",
+        g.drawFittedText ("Silent IR",
                           bounds,
                           juce::Justification::centred,
-                          2);
+                          1);
         return;
     }
 
